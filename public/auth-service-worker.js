@@ -8284,16 +8284,12 @@
   // auth-service-worker.js
   var firebaseConfig;
   self.addEventListener("install", (event) => {
-    const serializedFirebaseConfig = new URL(location).searchParams.get(
-      "firebaseConfig"
-    );
+    const serializedFirebaseConfig = new URL(location).searchParams.get("firebaseConfig");
     if (!serializedFirebaseConfig) {
-      throw new Error(
-        "Firebase Config object not found in service worker query string."
-      );
+      throw new Error("Firebase Config object not found in service worker query string.");
     }
     firebaseConfig = JSON.parse(serializedFirebaseConfig);
-    console.log("Service worker installed with Firebase config", firebaseConfig);
+    console.log("Service Worker installed with Firebase config", firebaseConfig);
   });
   self.addEventListener("fetch", (event) => {
     const { origin } = new URL(event.request.url);
@@ -8305,20 +8301,25 @@
     const auth = getAuth(app);
     const installations = getInstallations(app);
     const headers = new Headers(request.headers);
-    const [authIdToken, installationToken] = await Promise.all([
-      getAuthIdToken(auth),
-      getToken(installations)
-    ]);
-    headers.append("Firebase-Instance-ID-Token", installationToken);
-    if (authIdToken) headers.append("Authorization", `Bearer ${authIdToken}`);
-    const newRequest = new Request(request, { headers });
-    return await fetch(newRequest);
+    try {
+      const [authIdToken, installationToken] = await Promise.all([
+        getAuthIdToken(auth),
+        getToken(installations)
+      ]);
+      if (authIdToken) headers.append("Authorization", `Bearer ${authIdToken}`);
+      headers.append("Firebase-Instance-ID-Token", installationToken);
+      const newRequest = new Request(request, { headers });
+      return await fetch(newRequest);
+    } catch (error) {
+      console.error("Error adding Firebase authentication headers", error);
+      return fetch(request);
+    }
   }
   async function getAuthIdToken(auth) {
     return new Promise((resolve) => {
       const unsubscribe = auth.onAuthStateChanged(async (user) => {
         if (user) {
-          const token = await getIdToken(user);
+          const token = await getIdToken(user, true);
           resolve(token);
         } else {
           resolve(null);
